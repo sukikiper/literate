@@ -8,9 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.literate.novel.data.Novel
 import com.literate.novel.data.NovelRepository
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.NetworkImage
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
@@ -59,15 +57,15 @@ fun DetailNovelScreen(
                     contentScale = ContentScale.Crop,
                     showPlaceholderText = false
                 )
-                // Gradient scrim to dark background
+                // Gradient scrim to pure black background
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color(0x99070A0F),
-                                    Color(0xCC070A0F),
+                                    Color(0x55000000),
+                                    Color(0xCC000000),
                                     BgDark
                                 )
                             )
@@ -181,7 +179,7 @@ fun DetailNovelScreen(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                        imageVector = LiterateIcons.MenuBook,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -207,7 +205,7 @@ fun DetailNovelScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, ButtonDarkBorder)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Bookmark,
+                        imageVector = LiterateIcons.Bookmark,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -227,7 +225,7 @@ fun DetailNovelScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
-                color = Color(0xFF131926),
+                color = CardDarkSecondary,
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
             ) {
@@ -347,7 +345,7 @@ fun DetailNovelScreen(
                                 )
                             }
                             Icon(
-                                imageVector = Icons.Default.ChevronRight,
+                                imageVector = LiterateIcons.ChevronRight,
                                 contentDescription = null,
                                 tint = TextMuted,
                                 modifier = Modifier.size(18.dp)
@@ -571,7 +569,7 @@ fun DetailNovelScreen(
                             )
                         }
                         Surface(
-                            color = Color(0xFF161F2E),
+                            color = CardDarkSecondary,
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(

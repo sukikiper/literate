@@ -247,9 +247,9 @@ private fun NotificationToggleCard(
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = BgDark,
-                    checkedTrackColor = MintSecondary,
+                    checkedTrackColor = MintPrimary,
                     uncheckedThumbColor = TextMuted,
-                    uncheckedTrackColor = Color(0xFF1B2332)
+                    uncheckedTrackColor = ButtonDarkBg
                 )
             )
         }

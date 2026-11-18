@@ -10,10 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,8 +20,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.literate.novel.data.Novel
 import com.literate.novel.data.NovelRepository
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.NetworkImage
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
@@ -95,8 +92,8 @@ fun JelajahScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = InputBg,
-                    unfocusedContainerColor = InputBg,
+                    focusedContainerColor = CardDark,
+                    unfocusedContainerColor = CardDark,
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
                     focusedBorderColor = CardBorder,
@@ -159,7 +156,7 @@ fun JelajahScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Tune,
+                                imageVector = LiterateIcons.Tune,
                                 contentDescription = null,
                                 tint = TextPrimary,
                                 modifier = Modifier.size(16.dp)
@@ -200,7 +197,7 @@ fun JelajahScreen(
                             val isSelected = selectedGenre == genre
                             Surface(
                                 modifier = Modifier.clickable { selectedGenre = genre },
-                                color = if (isSelected) MintPrimary else Color(0xFF1B2332),
+                                color = if (isSelected) MintPrimary else ButtonDarkBg,
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
@@ -229,7 +226,7 @@ fun JelajahScreen(
                             val isSelected = selectedStatus == status
                             Surface(
                                 modifier = Modifier.clickable { selectedStatus = status },
-                                color = if (isSelected) MintPrimary else Color(0xFF1B2332),
+                                color = if (isSelected) MintPrimary else ButtonDarkBg,
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
@@ -345,7 +342,7 @@ fun JelajahScreen(
                     }
 
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = LiterateIcons.ChevronRight,
                         contentDescription = null,
                         tint = TextMuted,
                         modifier = Modifier.size(20.dp)

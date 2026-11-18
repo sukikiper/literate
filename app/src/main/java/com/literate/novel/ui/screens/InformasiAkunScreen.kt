@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.literate.novel.data.NovelRepository
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
 
@@ -84,7 +83,7 @@ fun InformasiAkunScreen(
                     Surface(
                         modifier = Modifier.size(54.dp),
                         shape = CircleShape,
-                        color = Color(0xFF192030),
+                        color = InputBg,
                         border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -246,7 +245,7 @@ fun InformasiAkunScreen(
                         )
                     }
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = LiterateIcons.ChevronRight,
                         contentDescription = null,
                         tint = TextMuted,
                         modifier = Modifier.size(18.dp)
@@ -287,7 +286,7 @@ fun InformasiAkunScreen(
                         )
                     }
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = LiterateIcons.ChevronRight,
                         contentDescription = null,
                         tint = TextMuted,
                         modifier = Modifier.size(18.dp)

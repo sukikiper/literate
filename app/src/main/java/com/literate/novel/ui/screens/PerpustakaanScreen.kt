@@ -8,9 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.literate.novel.data.BookshelfType
 import com.literate.novel.data.Novel
 import com.literate.novel.data.NovelRepository
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.NetworkImage
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
@@ -75,27 +73,18 @@ fun PerpustakaanScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: 5 Koleksi with highlighted dashed border
+                    // Left: 5 Koleksi
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 12.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0x1A2DD4BF),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2DD4BF)),
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        ) {
-                            Text(
-                                text = "5",
-                                color = TextPrimary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
-                            )
-                        }
+                        Text(
+                            text = "5",
+                            color = TextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Koleksi",
                             color = TextSecondary,
@@ -145,7 +134,7 @@ fun PerpustakaanScreen(
                     val isSelected = selectedFilter == filter
                     Surface(
                         modifier = Modifier.clickable { selectedFilter = filter },
-                        color = if (isSelected) MintPrimary else Color(0xFF1B2332),
+                        color = if (isSelected) MintPrimary else ButtonDarkBg,
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
@@ -197,7 +186,7 @@ fun PerpustakaanScreen(
                                 letterSpacing = 0.5.sp
                             )
                             Icon(
-                                imageVector = Icons.Default.MoreHoriz,
+                                imageVector = LiterateIcons.MoreHoriz,
                                 contentDescription = null,
                                 tint = TextMuted,
                                 modifier = Modifier.size(20.dp)
@@ -272,8 +261,8 @@ fun PerpustakaanScreen(
                                     .fillMaxWidth()
                                     .height(4.dp)
                                     .clip(RoundedCornerShape(2.dp)),
-                                color = MintSecondary,
-                                trackColor = Color(0xFF1E283A)
+                                color = MintPrimary,
+                                trackColor = ButtonDarkBg
                             )
                         }
                     }
@@ -348,7 +337,7 @@ fun PerpustakaanScreen(
                             )
                         }
                         Icon(
-                            imageVector = Icons.Default.ChevronRight,
+                            imageVector = LiterateIcons.ChevronRight,
                             contentDescription = null,
                             tint = TextMuted,
                             modifier = Modifier.size(20.dp)
@@ -420,7 +409,7 @@ fun PerpustakaanScreen(
                                 )
                             }
                             Icon(
-                                imageVector = Icons.Default.ChevronRight,
+                                imageVector = LiterateIcons.ChevronRight,
                                 contentDescription = null,
                                 tint = TextMuted,
                                 modifier = Modifier.size(20.dp)

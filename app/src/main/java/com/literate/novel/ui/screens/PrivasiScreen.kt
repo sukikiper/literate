@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.literate.novel.data.NovelRepository
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
 
@@ -97,7 +96,7 @@ fun PrivasiScreen(
                                 .weight(1f)
                                 .height(38.dp)
                                 .clickable { visibility = "Publik" },
-                            color = if (visibility == "Publik") MintPrimary else Color(0xFF1B2332),
+                            color = if (visibility == "Publik") MintPrimary else InputBg,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -116,7 +115,7 @@ fun PrivasiScreen(
                                 .weight(1f)
                                 .height(38.dp)
                                 .clickable { visibility = "Privat" },
-                            color = if (visibility == "Privat") MintPrimary else Color(0xFF1B2332),
+                            color = if (visibility == "Privat") MintPrimary else InputBg,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -273,9 +272,9 @@ private fun PrivacyToggleCard(
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = BgDark,
-                    checkedTrackColor = MintSecondary,
+                    checkedTrackColor = MintPrimary,
                     uncheckedThumbColor = TextMuted,
-                    uncheckedTrackColor = Color(0xFF1B2332)
+                    uncheckedTrackColor = ButtonDarkBg
                 )
             )
         }
@@ -314,7 +313,7 @@ private fun PrivacyLinkItem(title: String, subtitle: String) {
                 )
             }
             Icon(
-                imageVector = Icons.Default.ChevronRight,
+                imageVector = LiterateIcons.ChevronRight,
                 contentDescription = null,
                 tint = TextMuted,
                 modifier = Modifier.size(18.dp)

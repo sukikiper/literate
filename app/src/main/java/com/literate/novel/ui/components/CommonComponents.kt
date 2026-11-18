@@ -2,30 +2,25 @@ package com.literate.novel.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -38,11 +33,33 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.ConcurrentHashMap
 
-// In-memory cache for online novel covers from https://cdn.novelupdates.com
+// Lightweight bounded LRU memory cache (12 MB max) for online novel covers
 object ImageCache {
-    val cache = ConcurrentHashMap<String, Bitmap>()
+    private const val MAX_CACHE_BYTES = 12 * 1024 * 1024
+    private val lru = object : LruCache<String, Bitmap>(MAX_CACHE_BYTES) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
+
+    fun get(url: String): Bitmap? = lru.get(url)
+    fun put(url: String, bitmap: Bitmap) {
+        lru.put(url, bitmap)
+    }
+}
+
+private fun decodeDownsampledBitmap(bytes: ByteArray, reqMaxPx: Int = 480): Bitmap? {
+    val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
+    var sampleSize = 1
+    val maxDim = maxOf(boundsOpts.outWidth, boundsOpts.outHeight)
+    while (maxDim / sampleSize > reqMaxPx) {
+        sampleSize *= 2
+    }
+    val decodeOpts = BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+        inPreferredConfig = Bitmap.Config.RGB_565 // 50% less RAM per image
+    }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
 }
 
 @Composable
@@ -53,27 +70,27 @@ fun NetworkImage(
     contentScale: ContentScale = ContentScale.Crop,
     showPlaceholderText: Boolean = true
 ) {
-    var bitmap by remember(url) { mutableStateOf(ImageCache.cache[url]) }
+    var bitmap by remember(url) { mutableStateOf(ImageCache.get(url)) }
 
     LaunchedEffect(url) {
         if (bitmap == null && url.isNotEmpty()) {
-            withContext(Dispatchers.IO) {
+            val loaded = withContext(Dispatchers.IO) {
                 try {
                     val conn = URL(url).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 8000
-                    conn.readTimeout = 8000
+                    conn.connectTimeout = 7000
+                    conn.readTimeout = 7000
                     conn.setRequestProperty("User-Agent", "Mozilla/5.0")
                     conn.doInput = true
                     conn.connect()
-                    val stream = conn.inputStream
-                    val bmp = BitmapFactory.decodeStream(stream)
-                    if (bmp != null) {
-                        ImageCache.cache[url] = bmp
-                        bitmap = bmp
-                    }
-                } catch (e: Exception) {
-                    // Fallback to placeholder
+                    val bytes = conn.inputStream.use { it.readBytes() }
+                    conn.disconnect()
+                    decodeDownsampledBitmap(bytes)?.also { ImageCache.put(url, it) }
+                } catch (_: Exception) {
+                    null
                 }
+            }
+            if (loaded != null) {
+                bitmap = loaded
             }
         }
     }
@@ -87,10 +104,9 @@ fun NetworkImage(
             contentScale = contentScale
         )
     } else {
-        // Styled placeholder exactly matching mockup: rounded dark surface with [ Cover ]
+        // Styled placeholder matching mockup: #1F1E2E with [ Cover ]
         Box(
-            modifier = modifier
-                .background(Color(0xFF141A28)),
+            modifier = modifier.background(InputBg),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -98,16 +114,16 @@ fun NetworkImage(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Image,
+                    imageVector = LiterateIcons.ImagePlaceholder,
                     contentDescription = null,
-                    tint = Color(0xFF4B5563),
-                    modifier = Modifier.size(24.dp)
+                    tint = TextMuted,
+                    modifier = Modifier.size(22.dp)
                 )
                 if (showPlaceholderText) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "[ Cover ]",
-                        color = Color(0xFF6B7280),
+                        color = TextMuted,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -132,7 +148,6 @@ fun LiterateTopBar(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Hamburger Menu
         IconButton(
             onClick = onMenuClick,
             modifier = Modifier.size(36.dp)
@@ -140,16 +155,16 @@ fun LiterateTopBar(
             Icon(
                 imageVector = Icons.Default.Menu,
                 contentDescription = "Menu",
-                tint = Color.White,
+                tint = TextPrimary,
                 modifier = Modifier.size(26.dp)
             )
         }
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // LITERATE Badge Logo
+        // LITERATE Badge Logo (#D4FFF6 icy mint background, black bold text)
         Surface(
-            color = Color.White,
+            color = MintPrimary,
             shape = RoundedCornerShape(6.dp),
             modifier = Modifier.padding(vertical = 2.dp)
         ) {
@@ -165,7 +180,6 @@ fun LiterateTopBar(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Search Icon
         IconButton(
             onClick = onSearchClick,
             modifier = Modifier.size(36.dp)
@@ -173,21 +187,20 @@ fun LiterateTopBar(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
-                tint = Color.White,
+                tint = TextPrimary,
                 modifier = Modifier.size(22.dp)
             )
         }
 
         Spacer(modifier = Modifier.width(6.dp))
 
-        // Sign in Text
         TextButton(
             onClick = onSignInClick,
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
                 text = "Sign in",
-                color = Color.White,
+                color = TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )
@@ -195,7 +208,6 @@ fun LiterateTopBar(
 
         Spacer(modifier = Modifier.width(6.dp))
 
-        // Sign up Button (Mint Pill)
         Button(
             onClick = onSignUpClick,
             colors = ButtonDefaults.buttonColors(
@@ -226,7 +238,7 @@ fun LiterateBottomBar(
     onTabSelected: (NavigationTab) -> Unit
 ) {
     Surface(
-        color = Color(0xFF090D15),
+        color = CardDark,
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
@@ -256,8 +268,8 @@ fun LiterateBottomBar(
             BottomNavItem(
                 label = "Perpustakaan",
                 isSelected = currentTab == NavigationTab.PERPUSTAKAAN,
-                selectedIcon = Icons.Filled.Bookmark,
-                unselectedIcon = Icons.Outlined.BookmarkBorder,
+                selectedIcon = LiterateIcons.Bookmark,
+                unselectedIcon = LiterateIcons.BookmarkBorder,
                 onClick = { onTabSelected(NavigationTab.PERPUSTAKAAN) }
             )
             BottomNavItem(
@@ -289,13 +301,13 @@ private fun BottomNavItem(
         Icon(
             imageVector = if (isSelected) selectedIcon else unselectedIcon,
             contentDescription = label,
-            tint = if (isSelected) MintSecondary else TextMuted,
+            tint = if (isSelected) MintPrimary else TextMuted,
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
-            color = if (isSelected) MintSecondary else TextMuted,
+            color = if (isSelected) MintPrimary else TextMuted,
             fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
         )
@@ -324,7 +336,7 @@ fun SectionHeader(
             if (trailingText != null && onTrailingClick != null) {
                 Text(
                     text = trailingText,
-                    color = MintSecondary,
+                    color = CyanAccent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.clickable(onClick = onTrailingClick)
@@ -332,12 +344,11 @@ fun SectionHeader(
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
-        // Characteristic Mint Underline Bar
         Box(
             modifier = Modifier
                 .width(36.dp)
                 .height(3.dp)
-                .background(MintSecondary, RoundedCornerShape(2.dp))
+                .background(MintPrimary, RoundedCornerShape(2.dp))
         )
     }
 }
@@ -354,10 +365,9 @@ fun StarDisplay(
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = if (filled) GoldStar else Color(0xFF374151),
+                tint = if (filled) GoldStar else ButtonDarkBg,
                 modifier = Modifier.size(starSize)
             )
         }
     }
 }
-

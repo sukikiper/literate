@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.theme.*
 
 @Composable
@@ -45,7 +45,7 @@ fun RatingDialog(
                 .fillMaxWidth()
                 .padding(vertical = 16.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF111622),
+            color = CardDark,
             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
         ) {
             Column(
@@ -83,7 +83,7 @@ fun RatingDialog(
                     for (i in 1..5) {
                         IconButton(onClick = { selectedRating = i.toFloat() }) {
                             Icon(
-                                imageVector = if (selectedRating >= i) Icons.Default.Star else Icons.Outlined.StarBorder,
+                                imageVector = if (selectedRating >= i) Icons.Default.Star else LiterateIcons.StarBorder,
                                 contentDescription = "$i Bintang",
                                 tint = if (selectedRating >= i) GoldStar else TextMuted,
                                 modifier = Modifier.size(32.dp)

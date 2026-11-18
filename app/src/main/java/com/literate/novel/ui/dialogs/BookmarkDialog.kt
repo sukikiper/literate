@@ -33,7 +33,7 @@ fun BookmarkDialog(
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF111622),
+            color = CardDark,
             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
         ) {
             Column(

@@ -6,7 +6,7 @@ Aplikasi Android katalog, pelacakan bacaan (*reading tracking*), rating mendalam
 
 Anda dapat langsung mendownload APK di HP Anda melalui salah satu tautan berikut:
 
-1. **[Direct Download LITERATE.apk (Release)](https://github.com/itssinn01/literate/releases/download/v1.0.0/LITERATE.apk)** *(Tinggal klik di HP, file `.apk` langsung terunduh)*
+1. **[Direct Download LITERATE.apk (Latest Release - 1.2 MB)](https://github.com/itssinn01/literate/releases/latest/download/LITERATE.apk)** *(Tinggal klik di HP, file `.apk` langsung terunduh)*
 2. **[GitHub Releases Page](https://github.com/itssinn01/literate/releases)**
 
 ---
