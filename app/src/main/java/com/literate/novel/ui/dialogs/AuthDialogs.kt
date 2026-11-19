@@ -15,7 +15,8 @@ import com.literate.novel.ui.theme.*
 @Composable
 fun AuthDialog(
     isSignUp: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSuccess: (message: String) -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -118,7 +119,16 @@ fun AuthDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = onDismiss,
+                        onClick = {
+                            if (isSignUp) {
+                                com.literate.novel.data.NovelRepository.signUp(username, email)
+                                onSuccess("Akun berhasil dibuat! Selamat datang di LITERATE.")
+                            } else {
+                                com.literate.novel.data.NovelRepository.signIn(email)
+                                onSuccess("Berhasil masuk ke akun LITERATE.")
+                            }
+                            onDismiss()
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MintPrimary,
                             contentColor = Color.Black

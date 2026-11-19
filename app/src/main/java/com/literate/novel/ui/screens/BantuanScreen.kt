@@ -23,12 +23,15 @@ import com.literate.novel.ui.theme.*
 
 @Composable
 fun BantuanScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onShowMessage: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var expandedIndex by remember { mutableStateOf<Int?>(0) } // Default first item is expanded as in mockup!
+    var showSupportDialog by remember { mutableStateOf(false) }
+    var legalDialogType by remember { mutableStateOf<String?>(null) }
 
-    val faqItems = listOf(
+    val allFaqItems = listOf(
         Pair(
             "Bagaimana cara memberi rating?",
             "Buka detail novel, lalu pilih Beri Rating. Tentukan nilai dan tulis ulasan untuk membagikan pengalaman membaca kamu."
@@ -46,6 +49,14 @@ fun BantuanScreen(
             "Masuk ke tab Profil, pilih Informasi Akun di bawah Pengaturan Akun. Kamu dapat mengubah nama lengkap, nama pengguna, email, dan bio kamu."
         )
     )
+
+    val faqItems = remember(searchQuery) {
+        if (searchQuery.isBlank()) allFaqItems
+        else allFaqItems.filter {
+            it.first.contains(searchQuery, ignoreCase = true) ||
+                it.second.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -200,7 +211,7 @@ fun BantuanScreen(
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Button(
-                        onClick = {},
+                        onClick = { showSupportDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(42.dp),
@@ -256,7 +267,7 @@ fun BantuanScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {},
+                    .clickable { legalDialogType = "terms" },
                 color = CardDark,
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -289,7 +300,7 @@ fun BantuanScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {},
+                    .clickable { legalDialogType = "privacy" },
                 color = CardDark,
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -318,6 +329,71 @@ fun BantuanScreen(
 
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    if (showSupportDialog) {
+        var issueText by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSupportDialog = false },
+            containerColor = CardDark,
+            title = { Text("Hubungi Dukungan LITERATE", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Jelaskan kendala atau saran kamu:", color = TextSecondary, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = issueText,
+                        onValueChange = { issueText = it },
+                        placeholder = { Text("Tulis pesan kendalamu di sini...", color = TextMuted, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth().height(100.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = InputBg, unfocusedContainerColor = InputBg,
+                            focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = CyanAccent, unfocusedBorderColor = CardBorder
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (issueText.isNotBlank()) {
+                        showSupportDialog = false
+                        onShowMessage("Laporan kendala terkirim ke tim LITERATE!")
+                    } else {
+                        onShowMessage("Mohon isi pesan kendala terlebih dahulu.")
+                    }
+                }) { Text("Kirim", color = MintPrimary, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSupportDialog = false }) { Text("Batal", color = TextSecondary) }
+            }
+        )
+    }
+
+    if (legalDialogType != null) {
+        val isTerms = legalDialogType == "terms"
+        AlertDialog(
+            onDismissRequest = { legalDialogType = null },
+            containerColor = CardDark,
+            title = {
+                Text(
+                    if (isTerms) "Syarat & Ketentuan" else "Kebijakan Privasi",
+                    color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    if (isTerms) {
+                        "LITERATE adalah platform katalog, pelacakan bacaan, rating, dan komunitas ulasan novel. Pengguna wajib menggunakan fitur Spoiler Tag saat membahas alur penting dan dilarang melakukan spam ulasan."
+                    } else {
+                        "Data profil, koleksi rak buku digital, dan ulasan kamu disimpan untuk pengalaman komunitas LITERATE. Kamu dapat mengatur visibilitas profil kapan saja melalui menu Privasi."
+                    },
+                    color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { legalDialogType = null }) { Text("Mengerti", color = MintPrimary, fontWeight = FontWeight.Bold) }
+            }
+        )
     }
 }
 

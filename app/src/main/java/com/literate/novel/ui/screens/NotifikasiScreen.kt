@@ -19,7 +19,8 @@ import com.literate.novel.ui.theme.*
 
 @Composable
 fun NotifikasiScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onShowMessage: (String) -> Unit = {}
 ) {
     val initial = NovelRepository.notificationSettings
     var appNotification by remember { mutableStateOf(initial.appNotification) }
@@ -29,6 +30,8 @@ fun NotifikasiScreen(
     var novelRecommendation by remember { mutableStateOf(initial.novelRecommendation) }
     var readingReminder by remember { mutableStateOf(initial.readingReminder) }
     var quietTimeEnabled by remember { mutableStateOf(initial.quietTimeEnabled) }
+    var quietTimeRange by remember { mutableStateOf(initial.quietTimeRange) }
+    var showQuietTimeDialog by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -155,7 +158,7 @@ fun NotifikasiScreen(
                         Text(text = "Setiap hari", color = TextSecondary, fontSize = 11.sp)
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "22.00 – 07.00",
+                            text = quietTimeRange,
                             color = TextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -166,7 +169,7 @@ fun NotifikasiScreen(
                         color = MintSecondary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable {}
+                        modifier = Modifier.clickable { showQuietTimeDialog = true }
                     )
                 }
             }
@@ -183,10 +186,12 @@ fun NotifikasiScreen(
                             reviewReply = reviewReply,
                             novelRecommendation = novelRecommendation,
                             readingReminder = readingReminder,
-                            quietTimeEnabled = quietTimeEnabled
+                            quietTimeEnabled = quietTimeEnabled,
+                            quietTimeRange = quietTimeRange
                         )
                     )
                     isSaved = true
+                    onShowMessage("Preferensi notifikasi disimpan!")
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -205,6 +210,44 @@ fun NotifikasiScreen(
             }
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    if (showQuietTimeDialog) {
+        val presets = listOf("21.00 – 06.00", "22.00 – 07.00", "23.00 – 07.00", "00.00 – 08.00")
+        AlertDialog(
+            onDismissRequest = { showQuietTimeDialog = false },
+            containerColor = CardDark,
+            title = { Text("Atur Waktu Tenang", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEach { range ->
+                        val selected = range == quietTimeRange
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    quietTimeRange = range
+                                    showQuietTimeDialog = false
+                                    onShowMessage("Waktu tenang diatur ke $range")
+                                },
+                            color = if (selected) MintPrimary else InputBg,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = range,
+                                color = if (selected) Color.Black else TextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQuietTimeDialog = false }) { Text("Tutup", color = CyanAccent) }
+            }
+        )
     }
 }
 

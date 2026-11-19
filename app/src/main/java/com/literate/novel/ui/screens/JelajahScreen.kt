@@ -30,15 +30,19 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun JelajahScreen(
+    initialGenre: String = "Semua",
     onNovelClick: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedGenre by remember { mutableStateOf("Semua") }
+    var selectedGenre by remember(initialGenre) { mutableStateOf(initialGenre) }
     var selectedStatus by remember { mutableStateOf("Semua") }
+    var selectedSort by remember { mutableStateOf("Paling Populer") }
+    var showSortMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val genresList = listOf("Semua", "Fantasy", "Mystery", "Xianxia", "Sci-Fi", "Action", "Dark", "Comedy")
     val statusList = listOf("Semua", "Tamat", "Ongoing")
+    val sortOptions = listOf("Paling Populer", "Rating Tertinggi", "Chapter Terbanyak", "Judul A - Z")
 
     // Live fetch from 5,000+ AniList catalog whenever search/genre/status changes
     LaunchedEffect(searchQuery, selectedGenre, selectedStatus) {
@@ -60,15 +64,21 @@ fun JelajahScreen(
         matchesQuery && matchesGenre && matchesStatus
     }
 
-    val combinedNovels = remember(filteredLocal, NovelRepository.remoteNovels) {
+    val combinedNovels = remember(filteredLocal, NovelRepository.remoteNovels, selectedSort) {
         val seen = HashSet<String>()
-        buildList {
+        val merged = buildList {
             for (n in filteredLocal) {
                 if (seen.add(n.title.lowercase())) add(n)
             }
             for (n in NovelRepository.remoteNovels) {
                 if (seen.add(n.title.lowercase())) add(n)
             }
+        }
+        when (selectedSort) {
+            "Rating Tertinggi" -> merged.sortedByDescending { it.rating }
+            "Chapter Terbanyak" -> merged.sortedByDescending { it.chapters }
+            "Judul A - Z" -> merged.sortedBy { it.title.lowercase() }
+            else -> merged
         }
     }
 
@@ -293,12 +303,37 @@ fun JelajahScreen(
                     color = TextSecondary,
                     fontSize = 12.sp
                 )
-                Text(
-                    text = "Paling Populer ▾",
-                    color = MintSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Box {
+                    Text(
+                        text = "$selectedSort ▾",
+                        color = MintSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable { showSortMenu = true }
+                    )
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                        containerColor = CardDark
+                    ) {
+                        sortOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = option,
+                                        color = if (option == selectedSort) MintPrimary else TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (option == selectedSort) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                onClick = {
+                                    selectedSort = option
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(10.dp))
         }

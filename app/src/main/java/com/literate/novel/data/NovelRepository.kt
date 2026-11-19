@@ -563,6 +563,10 @@ object NovelRepository {
         }
     }
 
+    var isLoggedIn by mutableStateOf(true)
+    var avatarColor by mutableStateOf(0xFF1F1E2E)
+    var avatarText by mutableStateOf("[ Foto ]")
+
     var userProfile by mutableStateOf(
         UserProfile(
             name = "Pembaca Novel",
@@ -587,6 +591,89 @@ object NovelRepository {
             content = "Misterinya bikin penasaran. Dunia dan karakternya terasa hidup."
         )
     )
+
+    var myReviewsList by mutableStateOf(
+        listOf(
+            "Lord of The Mysteries" to ReviewItem(
+                id = "my_lotm_review",
+                userName = "Pembaca Novel",
+                stars = 5.0f,
+                content = "Misterinya bikin penasaran. Dunia dan karakternya terasa hidup."
+            )
+        )
+    )
+
+    val collectionCount: Int
+        get() = novels.count { it.bookshelf != null }
+    val readingCount: Int
+        get() = novels.count { it.bookshelf == BookshelfType.CURRENTLY_READING }
+    val savedCount: Int
+        get() = novels.count { it.bookshelf == BookshelfType.WANT_TO_READ }
+    val finishedCount: Int
+        get() = novels.count { it.bookshelf == BookshelfType.READ }
+    val ratedCount: Int
+        get() = myReviewsList.size
+
+    fun signIn(email: String) {
+        isLoggedIn = true
+        if (email.isNotBlank()) {
+            userProfile = userProfile.copy(email = email.trim())
+        }
+    }
+
+    fun signUp(username: String, email: String) {
+        isLoggedIn = true
+        val cleanUser = username.trim().let { if (it.startsWith("@")) it else "@$it" }
+        userProfile = userProfile.copy(
+            name = username.trim().removePrefix("@").ifBlank { userProfile.name },
+            username = if (cleanUser.length > 1) cleanUser else userProfile.username,
+            email = email.trim().ifBlank { userProfile.email }
+        )
+    }
+
+    fun signOut() {
+        isLoggedIn = false
+    }
+
+    fun updateAvatar(label: String, colorHex: Long) {
+        avatarText = label
+        avatarColor = colorHex
+    }
+
+    fun updateReadingProgress(novelId: String, chapterNumber: Int) {
+        val target = getNovelById(novelId) ?: return
+        val clamped = chapterNumber.coerceIn(1, target.chapters.coerceAtLeast(1))
+        val newProgress = ReadingProgress(
+            currentChapter = clamped,
+            totalChapters = target.chapters,
+            lastReadText = "Terakhir dibaca baru saja"
+        )
+        val newShelf = if (clamped >= target.chapters) BookshelfType.READ else BookshelfType.CURRENTLY_READING
+        val updater: (Novel) -> Novel = { n ->
+            if (n.id == novelId) n.copy(readingProgress = newProgress, bookshelf = newShelf) else n
+        }
+        if (novels.any { it.id == novelId }) {
+            novels = novels.map(updater)
+        } else {
+            val updated = updater(target)
+            novels = novels + updated
+            remoteNovels = remoteNovels.map(updater)
+        }
+    }
+
+    fun toggleReviewHelpful(novelId: String, reviewId: String) {
+        val updater: (Novel) -> Novel = { n ->
+            if (n.id == novelId) {
+                n.copy(
+                    reviews = n.reviews.map { r ->
+                        if (r.id == reviewId) r.copy(helpfulCount = r.helpfulCount + 1) else r
+                    }
+                )
+            } else n
+        }
+        novels = novels.map(updater)
+        remoteNovels = remoteNovels.map(updater)
+    }
 
     fun getNovelById(id: String): Novel? =
         novels.find { it.id == id } ?: remoteNovels.find { it.id == id }
@@ -630,6 +717,8 @@ object NovelRepository {
         }
         novels = novels.map(updater)
         remoteNovels = remoteNovels.map(updater)
+        val novelTitle = getNovelById(novelId)?.title ?: "Novel"
+        myReviewsList = listOf(novelTitle to newRev) + myReviewsList.filterNot { it.first == novelTitle }
         if (novelId == "lotm") {
             myReview = newRev
         }

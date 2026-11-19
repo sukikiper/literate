@@ -20,7 +20,8 @@ import com.literate.novel.ui.theme.*
 
 @Composable
 fun PrivasiScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onShowMessage: (String) -> Unit = {}
 ) {
     val initial = NovelRepository.privacySettings
     var visibility by remember { mutableStateOf(initial.profileVisibility) }
@@ -28,6 +29,7 @@ fun PrivasiScreen(
     var showProgress by remember { mutableStateOf(initial.showReadingProgress) }
     var showRating by remember { mutableStateOf(initial.showRatingAndReview) }
     var isSaved by remember { mutableStateOf(false) }
+    var activeInfoDialog by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -175,17 +177,20 @@ fun PrivasiScreen(
 
             PrivacyLinkItem(
                 title = "Unduh Data Saya",
-                subtitle = "Dapatkan salinan profil, koleksi, dan ulasan."
+                subtitle = "Dapatkan salinan profil, koleksi, dan ulasan.",
+                onClick = { activeInfoDialog = "download" }
             )
             Spacer(modifier = Modifier.height(6.dp))
             PrivacyLinkItem(
                 title = "Akun Diblokir",
-                subtitle = "Kelola pembaca yang kamu blokir."
+                subtitle = "Kelola pembaca yang kamu blokir.",
+                onClick = { activeInfoDialog = "blocked" }
             )
             Spacer(modifier = Modifier.height(6.dp))
             PrivacyLinkItem(
                 title = "Kebijakan Privasi",
-                subtitle = "Pelajari bagaimana data kamu digunakan."
+                subtitle = "Pelajari bagaimana data kamu digunakan.",
+                onClick = { activeInfoDialog = "policy" }
             )
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -201,6 +206,7 @@ fun PrivasiScreen(
                         )
                     )
                     isSaved = true
+                    onShowMessage("Pengaturan privasi disimpan!")
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -230,6 +236,30 @@ fun PrivasiScreen(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
+    }
+
+    if (activeInfoDialog != null) {
+        val (dialogTitle, dialogBody) = when (activeInfoDialog) {
+            "download" -> "Unduh Data Saya" to "Ringkasan data akun kamu:\n• Profil: ${NovelRepository.userProfile.name} (${NovelRepository.userProfile.username})\n• Koleksi Rak Buku: ${NovelRepository.collectionCount} novel\n• Total Ulasan: ${NovelRepository.ratedCount} ulasan\n\nPermintaan salinan data siap diproses."
+            "blocked" -> "Akun Diblokir" to "Saat ini kamu belum memblokir akun pembaca mana pun."
+            else -> "Kebijakan Privasi LITERATE" to "LITERATE menghargai privasimu. Data profil, rak buku digital, dan ulasan hanya digunakan untuk personalisasi pengalaman membaca dan tidak dibagikan ke pihak ketiga tanpa persetujuanmu."
+        }
+        AlertDialog(
+            onDismissRequest = { activeInfoDialog = null },
+            containerColor = CardDark,
+            title = { Text(dialogTitle, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            text = { Text(dialogBody, color = TextSecondary, fontSize = 13.sp, lineHeight = 19.sp) },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (activeInfoDialog == "download") {
+                        onShowMessage("Salinan data akun berhasil disiapkan!")
+                    }
+                    activeInfoDialog = null
+                }) {
+                    Text(if (activeInfoDialog == "download") "Unduh Sekarang" else "Tutup", color = MintPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 
@@ -282,11 +312,11 @@ private fun PrivacyToggleCard(
 }
 
 @Composable
-private fun PrivacyLinkItem(title: String, subtitle: String) {
+private fun PrivacyLinkItem(title: String, subtitle: String, onClick: () -> Unit = {}) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {},
+            .clickable(onClick = onClick),
         color = CardDark,
         shape = RoundedCornerShape(10.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)

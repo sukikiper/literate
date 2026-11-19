@@ -29,11 +29,15 @@ fun ProfilScreen(
     onNavigateToPrivacy: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
     onNovelClick: (String) -> Unit = {},
-    onEditReviewClick: () -> Unit = {}
+    onGenreClick: (String) -> Unit = {},
+    onEditReviewClick: () -> Unit = {},
+    onShowMessage: (String) -> Unit = {}
 ) {
     val profile = NovelRepository.userProfile
     val myReview = NovelRepository.myReview
     val lotmNovel = NovelRepository.getNovelById("lotm") ?: NovelRepository.novels.first()
+    var showAllMyReviewsDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -71,17 +75,19 @@ fun ProfilScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Avatar [ Foto ]
                         Surface(
-                            modifier = Modifier.size(54.dp),
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clickable(onClick = onNavigateToAccountInfo),
                             shape = CircleShape,
-                            color = InputBg,
+                            color = Color(NovelRepository.avatarColor),
                             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "[ Foto ]",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
+                                    text = NovelRepository.avatarText,
+                                    color = if (NovelRepository.avatarText == "[ Foto ]") TextSecondary else Color.White,
+                                    fontSize = if (NovelRepository.avatarText == "[ Foto ]") 11.sp else 16.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -152,11 +158,11 @@ fun ProfilScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    StatColumn(number = "${profile.totalCollections}", label = "Koleksi")
+                    StatColumn(number = "${NovelRepository.collectionCount}", label = "Koleksi")
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(DividerDark))
-                    StatColumn(number = "${profile.totalReading}", label = "Dibaca")
+                    StatColumn(number = "${NovelRepository.readingCount}", label = "Dibaca")
                     Box(modifier = Modifier.width(1.dp).height(32.dp).background(DividerDark))
-                    StatColumn(number = "${profile.totalFinished}", label = "Selesai")
+                    StatColumn(number = "${NovelRepository.finishedCount}", label = "Selesai")
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -172,6 +178,7 @@ fun ProfilScreen(
             ) {
                 profile.favoriteGenres.forEach { genre ->
                     Surface(
+                        modifier = Modifier.clickable { onGenreClick(genre) },
                         color = InputBg,
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -193,7 +200,7 @@ fun ProfilScreen(
             SectionHeader(
                 title = "Rating & Ulasan Saya",
                 trailingText = "Lihat semua ›",
-                onTrailingClick = {}
+                onTrailingClick = { showAllMyReviewsDialog = true }
             )
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -301,7 +308,7 @@ fun ProfilScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {},
+                    .clickable { showLogoutDialog = true },
                 color = ButtonDarkBg,
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -335,6 +342,64 @@ fun ProfilScreen(
             )
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    if (showAllMyReviewsDialog) {
+        AlertDialog(
+            onDismissRequest = { showAllMyReviewsDialog = false },
+            containerColor = CardDark,
+            title = {
+                Text("Rating & Ulasan Saya (${NovelRepository.myReviewsList.size})", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NovelRepository.myReviewsList.forEach { (title, rev) ->
+                        Surface(color = InputBg, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(title, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text("★ ${rev.stars}", color = GoldStar, fontSize = 12.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(rev.content, color = TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAllMyReviewsDialog = false }) {
+                    Text("Tutup", color = CyanAccent)
+                }
+            }
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            containerColor = CardDark,
+            title = {
+                Text("Keluar Akun?", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Kamu bisa masuk kembali kapan saja menggunakan tombol Sign in di atas.", color = TextSecondary, fontSize = 13.sp)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    NovelRepository.signOut()
+                    showLogoutDialog = false
+                    onShowMessage("Berhasil keluar dari akun.")
+                }) {
+                    Text("Keluar", color = MintPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 

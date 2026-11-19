@@ -32,10 +32,14 @@ fun DetailNovelScreen(
     novelId: String = "lotm",
     onNovelClick: (String) -> Unit = {},
     onRateNowClick: (Novel) -> Unit = {},
-    onBookmarkClick: (Novel) -> Unit = {}
+    onBookmarkClick: (Novel) -> Unit = {},
+    onShowMessage: (String) -> Unit = {}
 ) {
     val novel = NovelRepository.getNovelById(novelId) ?: NovelRepository.novels.first()
-    var isSynopsisExpanded by remember { mutableStateOf(false) }
+    var isSynopsisExpanded by remember(novelId) { mutableStateOf(false) }
+    var showAllChaptersDialog by remember { mutableStateOf(false) }
+    var showAllReviewsDialog by remember { mutableStateOf(false) }
+    var revealedSpoilers by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(novelId) {
         NovelRepository.loadSakuraChaptersIfNeeded(novelId)
@@ -59,7 +63,8 @@ fun DetailNovelScreen(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    showPlaceholderText = false
+                    showPlaceholderText = false,
+                    fallbackTitle = novel.title
                 )
                 // Gradient scrim to pure black background
                 Box(
@@ -314,15 +319,19 @@ fun DetailNovelScreen(
                 SectionHeader(
                     title = "Daftar Chapter",
                     trailingText = "Lihat Semua ›",
-                    onTrailingClick = {}
+                    onTrailingClick = { showAllChaptersDialog = true }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                novel.chaptersList.forEach { chapter ->
+                novel.chaptersList.take(3).forEach { chapter ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 4.dp)
+                            .clickable {
+                                NovelRepository.updateReadingProgress(novel.id, chapter.number)
+                                onShowMessage("Progres ditandai sampai ${chapter.title}")
+                            },
                         color = CardDark,
                         shape = RoundedCornerShape(10.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -370,15 +379,24 @@ fun DetailNovelScreen(
                 SectionHeader(
                     title = "Ulasan Pembaca",
                     trailingText = "Semua ›",
-                    onTrailingClick = {}
+                    onTrailingClick = { showAllReviewsDialog = true }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                novel.reviews.forEach { review ->
+                novel.reviews.take(2).forEach { review ->
+                    val isHiddenSpoiler = review.isSpoiler && review.id !in revealedSpoilers
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 4.dp)
+                            .clickable {
+                                if (isHiddenSpoiler) {
+                                    revealedSpoilers = revealedSpoilers + review.id
+                                } else {
+                                    NovelRepository.toggleReviewHelpful(novel.id, review.id)
+                                    onShowMessage("Ulasan ditandai membantu")
+                                }
+                            },
                         color = CardDark,
                         shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -419,12 +437,21 @@ fun DetailNovelScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = review.content,
-                                color = Color(0xFFD1D5DB),
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp
-                            )
+                            if (isHiddenSpoiler) {
+                                Text(
+                                    text = "⚠ Ulasan mengandung spoiler · Ketuk untuk menampilkan",
+                                    color = CyanAccent,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else {
+                                Text(
+                                    text = review.content,
+                                    color = Color(0xFFD1D5DB),
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -524,8 +551,11 @@ fun DetailNovelScreen(
                 SectionHeader(title = "Populer Minggu Ini")
                 Spacer(modifier = Modifier.height(10.dp))
 
+                val topPopular = NovelRepository.novels.firstOrNull { it.weeklyRank == 1 } ?: novel
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNovelClick(topPopular.id) },
                     color = CardDark,
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
@@ -550,8 +580,8 @@ fun DetailNovelScreen(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             NetworkImage(
-                                url = novel.coverUrl,
-                                contentDescription = null,
+                                url = topPopular.coverUrl,
+                                contentDescription = topPopular.title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                                 showPlaceholderText = false
@@ -560,14 +590,14 @@ fun DetailNovelScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = novel.title,
+                                text = topPopular.title,
                                 color = TextPrimary,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${novel.rating} ★ · ${novel.totalVotes} votes",
+                                text = "${topPopular.rating} ★ · ${topPopular.totalVotes} votes",
                                 color = TextSecondary,
                                 fontSize = 11.sp
                             )
@@ -577,7 +607,7 @@ fun DetailNovelScreen(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(
-                                text = novel.status,
+                                text = topPopular.status,
                                 color = TextPrimary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
@@ -589,6 +619,122 @@ fun DetailNovelScreen(
             }
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    // All Chapters Dialog (Tapping any chapter updates reading progress)
+    if (showAllChaptersDialog) {
+        AlertDialog(
+            onDismissRequest = { showAllChaptersDialog = false },
+            containerColor = CardDark,
+            title = {
+                Text(
+                    text = "Daftar Chapter (${novel.chapters} ch)",
+                    color = TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Ketuk chapter untuk menandai progres bacaanmu:",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    novel.chaptersList.forEach { ch ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    NovelRepository.updateReadingProgress(novel.id, ch.number)
+                                    onShowMessage("Progres diperbarui ke ${ch.title}")
+                                    showAllChaptersDialog = false
+                                },
+                            color = InputBg,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(text = ch.title, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "${ch.reads} · ${ch.readTime}", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAllChaptersDialog = false }) {
+                    Text("Tutup", color = CyanAccent)
+                }
+            }
+        )
+    }
+
+    // All Reviews Dialog
+    if (showAllReviewsDialog) {
+        AlertDialog(
+            onDismissRequest = { showAllReviewsDialog = false },
+            containerColor = CardDark,
+            title = {
+                Text(
+                    text = "Semua Ulasan (${novel.reviews.size})",
+                    color = TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    novel.reviews.forEach { rev ->
+                        val hidden = rev.isSpoiler && rev.id !in revealedSpoilers
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (hidden) revealedSpoilers = revealedSpoilers + rev.id
+                                    else {
+                                        NovelRepository.toggleReviewHelpful(novel.id, rev.id)
+                                        onShowMessage("Ditandai membantu")
+                                    }
+                                },
+                            color = InputBg,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = rev.userName, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "★ ${rev.stars}", color = GoldStar, fontSize = 12.sp)
+                                }
+                                if (!rev.progressTag.isNullOrBlank()) {
+                                    Text(text = rev.progressTag, color = CyanAccent, fontSize = 10.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (hidden) "⚠ Spoiler · Ketuk untuk membuka" else rev.content,
+                                    color = if (hidden) CyanAccent else TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAllReviewsDialog = false
+                    onRateNowClick(novel)
+                }) {
+                    Text("Tulis Ulasan", color = MintPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAllReviewsDialog = false }) {
+                    Text("Tutup", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 

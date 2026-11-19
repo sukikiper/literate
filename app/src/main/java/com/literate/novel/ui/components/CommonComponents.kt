@@ -30,9 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.literate.novel.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 
 // Lightweight bounded LRU memory cache (12 MB max) for online novel covers
 object ImageCache {
@@ -40,10 +44,57 @@ object ImageCache {
     private val lru = object : LruCache<String, Bitmap>(MAX_CACHE_BYTES) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
+    private val resolvedUrls = ConcurrentHashMap<String, String>()
+    private val resolveSemaphore = Semaphore(4)
 
-    fun get(url: String): Bitmap? = lru.get(url)
-    fun put(url: String, bitmap: Bitmap) {
-        lru.put(url, bitmap)
+    fun get(key: String): Bitmap? = lru.get(key)
+    fun put(key: String, bitmap: Bitmap) {
+        lru.put(key, bitmap)
+    }
+
+    suspend fun resolveCoverUrl(title: String): String {
+        val cleanKey = title.trim().lowercase()
+        if (cleanKey.isBlank()) return ""
+        resolvedUrls[cleanKey]?.let { return it }
+
+        return resolveSemaphore.withPermit {
+            resolvedUrls[cleanKey]?.let { return@withPermit it }
+            val found = fetchAniListCover(title)
+            resolvedUrls[cleanKey] = found
+            found
+        }
+    }
+
+    private fun fetchAniListCover(title: String): String {
+        val conn = (URL("https://graphql.anilist.co").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 4500
+            readTimeout = 4500
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "LiterateAndroid/1.0")
+        }
+        return try {
+            val payload = JSONObject().apply {
+                put("query", "query (\$s: String) { Media(search: \$s, type: MANGA) { coverImage { large } } }")
+                put("variables", JSONObject().put("s", title))
+            }.toString()
+            conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            if (conn.responseCode in 200..299) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                JSONObject(text)
+                    .optJSONObject("data")
+                    ?.optJSONObject("Media")
+                    ?.optJSONObject("coverImage")
+                    ?.optString("large", "")
+                    ?.takeIf { it.startsWith("http") } ?: ""
+            } else ""
+        } catch (_: Exception) {
+            ""
+        } finally {
+            conn.disconnect()
+        }
     }
 }
 
@@ -68,23 +119,40 @@ fun NetworkImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    showPlaceholderText: Boolean = true
+    showPlaceholderText: Boolean = true,
+    fallbackTitle: String? = contentDescription
 ) {
-    var bitmap by remember(url) { mutableStateOf(ImageCache.get(url)) }
+    val cacheKey = remember(url, fallbackTitle) {
+        if (url.isNotBlank()) url else "title:${fallbackTitle?.trim()?.lowercase().orEmpty()}"
+    }
+    var bitmap by remember(cacheKey) { mutableStateOf(ImageCache.get(cacheKey)) }
 
-    LaunchedEffect(url) {
-        if (bitmap == null && url.isNotEmpty()) {
+    LaunchedEffect(cacheKey) {
+        if (bitmap == null) {
             val loaded = withContext(Dispatchers.IO) {
                 try {
-                    val conn = URL(url).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 7000
-                    conn.readTimeout = 7000
+                    val targetUrl = if (url.isNotBlank()) {
+                        url
+                    } else if (!fallbackTitle.isNullOrBlank()) {
+                        ImageCache.resolveCoverUrl(fallbackTitle)
+                    } else ""
+
+                    if (targetUrl.isBlank()) return@withContext null
+
+                    ImageCache.get(targetUrl)?.let { return@withContext it }
+
+                    val conn = URL(targetUrl).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 6000
+                    conn.readTimeout = 6000
                     conn.setRequestProperty("User-Agent", "Mozilla/5.0")
                     conn.doInput = true
                     conn.connect()
                     val bytes = conn.inputStream.use { it.readBytes() }
                     conn.disconnect()
-                    decodeDownsampledBitmap(bytes)?.also { ImageCache.put(url, it) }
+                    decodeDownsampledBitmap(bytes)?.also {
+                        ImageCache.put(cacheKey, it)
+                        ImageCache.put(targetUrl, it)
+                    }
                 } catch (_: Exception) {
                     null
                 }

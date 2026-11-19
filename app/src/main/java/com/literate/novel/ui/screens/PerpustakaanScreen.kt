@@ -30,9 +30,16 @@ import com.literate.novel.ui.theme.*
 fun PerpustakaanScreen(
     onNovelClick: (String) -> Unit = {},
     onReviewClick: (Novel) -> Unit = {},
+    onBookmarkClick: (Novel) -> Unit = {},
     onManageSavedClick: () -> Unit = {}
 ) {
-    var selectedFilter by remember { mutableStateOf("Semua (5)") }
+    var selectedFilterIndex by remember { mutableStateOf(0) }
+    var showManageSavedDialog by remember { mutableStateOf(false) }
+
+    val collectionCount = NovelRepository.collectionCount
+    val savedCount = NovelRepository.savedCount
+    val ratedCount = NovelRepository.ratedCount
+    val filters = listOf("Semua ($collectionCount)", "Disimpan ($savedCount)", "Dirating")
 
     LazyColumn(
         modifier = Modifier
@@ -73,13 +80,13 @@ fun PerpustakaanScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: 5 Koleksi
+                    // Left: Koleksi
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "5",
+                            text = "$collectionCount",
                             color = TextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -100,13 +107,13 @@ fun PerpustakaanScreen(
                             .background(DividerDark)
                     )
 
-                    // Right: 1 Dirating
+                    // Right: Dirating
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "1",
+                            text = "$ratedCount",
                             color = TextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -123,17 +130,16 @@ fun PerpustakaanScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 3. Filter Pills [Semua (5)], [Disimpan (2)], [Dirating]
+        // 3. Filter Pills [Semua (N)], [Disimpan (N)], [Dirating]
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val filters = listOf("Semua (5)", "Disimpan (2)", "Dirating")
-                filters.forEach { filter ->
-                    val isSelected = selectedFilter == filter
+                filters.forEachIndexed { idx, filter ->
+                    val isSelected = selectedFilterIndex == idx
                     Surface(
-                        modifier = Modifier.clickable { selectedFilter = filter },
+                        modifier = Modifier.clickable { selectedFilterIndex = idx },
                         color = if (isSelected) MintPrimary else ButtonDarkBg,
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -151,7 +157,7 @@ fun PerpustakaanScreen(
         }
 
         // 4. Section: Lanjutkan Membaca
-        if (selectedFilter != "Disimpan (2)") {
+        if (selectedFilterIndex != 1) {
             item {
                 SectionHeader(title = "Lanjutkan Membaca")
                 Spacer(modifier = Modifier.height(10.dp))
@@ -187,9 +193,11 @@ fun PerpustakaanScreen(
                             )
                             Icon(
                                 imageVector = LiterateIcons.MoreHoriz,
-                                contentDescription = null,
+                                contentDescription = "Atur rak buku",
                                 tint = TextMuted,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clickable { onBookmarkClick(novel) }
                             )
                         }
 
@@ -272,12 +280,12 @@ fun PerpustakaanScreen(
         }
 
         // 5. Section: Disimpan untuk Nanti
-        if (selectedFilter != "Dirating") {
+        if (selectedFilterIndex != 2) {
             item {
                 SectionHeader(
                     title = "Disimpan untuk Nanti",
                     trailingText = "Kelola ›",
-                    onTrailingClick = onManageSavedClick
+                    onTrailingClick = { showManageSavedDialog = true }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -349,7 +357,7 @@ fun PerpustakaanScreen(
         }
 
         // 6. Section: Selesai Dibaca
-        if (selectedFilter != "Disimpan (2)") {
+        if (selectedFilterIndex != 1) {
             item {
                 SectionHeader(title = "Selesai Dibaca")
                 Spacer(modifier = Modifier.height(10.dp))
@@ -453,6 +461,51 @@ fun PerpustakaanScreen(
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
+    }
+
+    if (showManageSavedDialog) {
+        val savedNovels = NovelRepository.novels.filter { it.bookshelf == BookshelfType.WANT_TO_READ }
+        AlertDialog(
+            onDismissRequest = { showManageSavedDialog = false },
+            containerColor = CardDark,
+            title = {
+                Text("Kelola Disimpan untuk Nanti", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (savedNovels.isEmpty()) {
+                        Text("Belum ada novel di daftar simpan.", color = TextSecondary, fontSize = 13.sp)
+                    } else {
+                        savedNovels.forEach { n ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showManageSavedDialog = false
+                                        onBookmarkClick(n)
+                                    },
+                                color = InputBg,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(n.title, color = TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                    Text("Ubah ›", color = CyanAccent, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showManageSavedDialog = false }) {
+                    Text("Selesai", color = MintPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 
