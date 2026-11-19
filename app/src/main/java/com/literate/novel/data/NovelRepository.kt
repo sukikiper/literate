@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 
 object NovelRepository {
 
@@ -12,7 +13,7 @@ object NovelRepository {
         Novel(
             id = "lotm",
             title = "Lord of The Mysteries",
-            coverUrl = "https://cdn.novelupdates.com/images/2018/11/Lord-of-the-Mysteries.jpeg",
+            coverUrl = "asset://covers/lotm.jpg",
             rating = 4.7,
             totalVotes = 2421,
             status = "Tamat",
@@ -55,7 +56,7 @@ object NovelRepository {
         Novel(
             id = "reverend",
             title = "Reverend Insanity",
-            coverUrl = "https://cdn.novelupdates.com/images/2025/06/Reverend-Insanity.jpg",
+            coverUrl = "asset://covers/reverend.jpg",
             rating = 4.8,
             totalVotes = 1890,
             status = "Tamat",
@@ -94,7 +95,7 @@ object NovelRepository {
         Novel(
             id = "mechanic",
             title = "The Legendary Mechanic",
-            coverUrl = "https://cdn.novelupdates.com/images/2018/11/legemecha1.jpg",
+            coverUrl = "asset://covers/mechanic.jpg",
             rating = 4.6,
             totalVotes = 1520,
             status = "Tamat",
@@ -131,7 +132,7 @@ object NovelRepository {
         Novel(
             id = "magus",
             title = "Warlock of the Magus World",
-            coverUrl = "https://cdn.novelupdates.com/images/2022/05/Warlock-of-the-Magus-World_1653417756.jpg",
+            coverUrl = "asset://covers/magus.jpg",
             rating = 4.5,
             totalVotes = 1340,
             status = "Tamat",
@@ -172,7 +173,7 @@ object NovelRepository {
         Novel(
             id = "eternal",
             title = "A Will Eternal",
-            coverUrl = "https://cdn.novelupdates.com/images/2016/06/betacover.jpg",
+            coverUrl = "asset://covers/eternal.jpg",
             rating = 4.4,
             totalVotes = 1210,
             status = "Ongoing",
@@ -213,7 +214,7 @@ object NovelRepository {
         Novel(
             id = "orv",
             title = "Omniscient Reader's Viewpoint",
-            coverUrl = "https://cdn.novelupdates.com/images/2018/07/orv.jpg",
+            coverUrl = "asset://covers/orv.jpg",
             rating = 4.9,
             totalVotes = 3150,
             status = "Tamat",
@@ -250,7 +251,7 @@ object NovelRepository {
         Novel(
             id = "sololeveling",
             title = "Solo Leveling",
-            coverUrl = "https://cdn.novelupdates.com/images/2019/01/Solo-Leveling.jpg",
+            coverUrl = "asset://covers/sololeveling.jpg",
             rating = 4.6,
             totalVotes = 2890,
             status = "Tamat",
@@ -285,7 +286,7 @@ object NovelRepository {
         Novel(
             id = "tcf",
             title = "Trash of the Count's Family",
-            coverUrl = "https://cdn.novelupdates.com/images/2022/10/Trash-of-the-Counts-Family.jpg",
+            coverUrl = "asset://covers/tcf.jpg",
             rating = 4.7,
             totalVotes = 1980,
             status = "Ongoing",
@@ -320,7 +321,7 @@ object NovelRepository {
         Novel(
             id = "rtw",
             title = "Release That Witch",
-            coverUrl = "https://cdn.novelupdates.com/images/2024/08/Release-that-Witch.jpg",
+            coverUrl = "asset://covers/rtw.jpg",
             rating = 4.6,
             totalVotes = 1760,
             status = "Tamat",
@@ -355,7 +356,7 @@ object NovelRepository {
         Novel(
             id = "tne",
             title = "The Novel's Extra",
-            coverUrl = "https://cdn.novelupdates.com/images/2018/08/TheNovelsExtra.jpg",
+            coverUrl = "asset://covers/tne.jpg",
             rating = 4.5,
             totalVotes = 1640,
             status = "Tamat",
@@ -390,7 +391,7 @@ object NovelRepository {
         Novel(
             id = "scog",
             title = "The Second Coming of Gluttony",
-            coverUrl = "https://cdn.novelupdates.com/images/2019/01/The-Second-Coming-of-Avarice.jpg",
+            coverUrl = "asset://covers/scog.jpg",
             rating = 4.7,
             totalVotes = 1830,
             status = "Tamat",
@@ -425,7 +426,7 @@ object NovelRepository {
         Novel(
             id = "ri_xianni",
             title = "Renegade Immortal",
-            coverUrl = "https://cdn.novelupdates.com/images/2016/03/xianni-1.jpg",
+            coverUrl = "asset://covers/ri_xianni.jpg",
             rating = 4.6,
             totalVotes = 1490,
             status = "Tamat",
@@ -461,6 +462,85 @@ object NovelRepository {
 
     var novels by mutableStateOf(initialNovels)
         private set
+
+    private var bundledLoaded = false
+
+    fun loadBundledSakuraCatalog() {
+        if (bundledLoaded) return
+        bundledLoaded = true
+        val rawJson = LiterateCache.readAssetText("sakura_catalog.json") ?: return
+        try {
+            val arr = JSONArray(rawJson)
+            val existingTitles = novels.map { it.title.lowercase() }.toMutableSet()
+            val added = ArrayList<Novel>(arr.length())
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val wpId = obj.optInt("id", 0)
+                if (wpId == 0) continue
+                val title = obj.optString("name", "")
+                    .replace("&#8217;", "’")
+                    .replace("&#8216;", "‘")
+                    .replace("&#038;", "&")
+                    .replace("&amp;", "&")
+                    .trim()
+                if (title.isBlank() || !existingTitles.add(title.lowercase())) continue
+
+                val chapterCount = obj.optInt("count", 1).coerceAtLeast(1)
+                val rawDesc = obj.optString("description", "").replace(Regex("<[^>]*>"), "").trim()
+                val synopsis = rawDesc.ifBlank {
+                    "Novel terjemahan Bahasa Indonesia dari katalog SakuraNovel dengan total $chapterCount chapter. Tambahkan ke perpustakaan dan bagikan ulasanmu bersama komunitas LITERATE."
+                }
+                val lower = title.lowercase()
+                val genres = mutableListOf<String>()
+                if (lower.contains("hero") || lower.contains("sword") || lower.contains("knight") || lower.contains("hunter") || lower.contains("academy")) genres.add("Action")
+                if (lower.contains("villain") || lower.contains("kill") || lower.contains("demon") || lower.contains("dark") || lower.contains("death")) genres.add("Dark")
+                if (lower.contains("mystery") || lower.contains("secret") || lower.contains("shadow") || lower.contains("regression")) genres.add("Mystery")
+                if (lower.contains("cultivat") || lower.contains("immortal") || lower.contains("martial") || lower.contains("murim")) genres.add("Xianxia")
+                if (lower.contains("mech") || lower.contains("system") || lower.contains("game")) genres.add("Sci-Fi")
+                if (lower.contains("flirt") || lower.contains("love") || lower.contains("heroine") || lower.contains("senior") || lower.contains("comedy")) genres.add("Comedy")
+                if (genres.isEmpty() || !genres.contains("Fantasy")) genres.add(0, "Fantasy")
+
+                val status = if (chapterCount >= 400) "Tamat" else "Ongoing"
+                val rating = (4.3 + ((wpId % 6) * 0.1)).coerceAtMost(4.9)
+                val votes = (chapterCount * 2 + (wpId % 350)).coerceAtLeast(85)
+
+                added.add(
+                    Novel(
+                        id = "sn_$wpId",
+                        title = title,
+                        coverUrl = "asset://covers/sn_$wpId.jpg",
+                        rating = (kotlin.math.round(rating * 10.0) / 10.0),
+                        totalVotes = votes,
+                        status = status,
+                        chapters = chapterCount,
+                        genres = genres.take(3),
+                        author = "SakuraNovel",
+                        originalLanguage = "Bahasa Indonesia (TL)",
+                        releaseYear = 2024,
+                        synopsis = synopsis,
+                        chaptersList = listOf(
+                            ChapterItem(1, "Chapter 1: Awal Cerita", "1.5k reads", "8 min read"),
+                            ChapterItem(2, "Chapter 2: Pertemuan Baru", "1.2k reads", "9 min read"),
+                            ChapterItem(3, "Chapter 3: Rahasia Terungkap", "1.0k reads", "8 min read")
+                        ),
+                        reviews = listOf(
+                            ReviewItem(
+                                id = "rev_sn_${wpId}_1",
+                                userName = "PembacaSakura",
+                                avatarColor = 0xFF6366F1,
+                                stars = 4.5f,
+                                content = "Terjemahan enak dibaca dan alurnya bikin betah maraton!"
+                            )
+                        )
+                    )
+                )
+            }
+            if (added.isNotEmpty()) {
+                novels = novels + added
+            }
+        } catch (_: Exception) {
+        }
+    }
 
     // Live-fetched novels from SakuraNovel WordPress REST API (478+ Bahasa Indonesia novels)
     var remoteNovels by mutableStateOf<List<Novel>>(emptyList())

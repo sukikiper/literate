@@ -21,6 +21,7 @@ object LiterateCache {
     private const val MAX_DISK_IMAGE_BYTES = 150L * 1024 * 1024 // 150 MB Disk image cache
     private const val API_TTL_MS = 24L * 60 * 60 * 1000         // 24 hours
 
+    private var appContext: Context? = null
     private var rootDir: File? = null
     private var imagesDir: File? = null
     private var apiDir: File? = null
@@ -34,7 +35,9 @@ object LiterateCache {
 
     fun init(context: Context) {
         if (rootDir != null) return
-        val base = File(context.applicationContext.cacheDir, "literate_cache")
+        val appCtx = context.applicationContext
+        appContext = appCtx
+        val base = File(appCtx.cacheDir, "literate_cache")
         val img = File(base, "images")
         val api = File(base, "api")
         img.mkdirs()
@@ -44,6 +47,33 @@ object LiterateCache {
         apiDir = api
         coverMapFile = File(base, "cover_urls.json")
         loadCoverUrlMapFromDisk()
+    }
+
+    fun getBitmapFromAssets(assetPath: String): Bitmap? {
+        val key = "asset://$assetPath"
+        ramImages.get(key)?.let { return it }
+        val ctx = appContext ?: return null
+        return try {
+            ctx.assets.open(assetPath).use { stream ->
+                val opts = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeStream(stream, null, opts)?.also {
+                    ramImages.put(key, it)
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun readAssetText(assetPath: String): String? {
+        val ctx = appContext ?: return null
+        return try {
+            ctx.assets.open(assetPath).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun md5(key: String): String {

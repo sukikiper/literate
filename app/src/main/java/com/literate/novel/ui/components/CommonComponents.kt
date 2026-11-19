@@ -118,12 +118,23 @@ fun NetworkImage(
     val cacheKey = remember(url, fallbackTitle) {
         if (url.isNotBlank()) url else "title:${fallbackTitle?.trim()?.lowercase().orEmpty()}"
     }
-    var bitmap by remember(cacheKey) { mutableStateOf(ImageCache.getRam(cacheKey)) }
+    var bitmap by remember(cacheKey) {
+        mutableStateOf(
+            if (url.startsWith("asset://")) {
+                LiterateCache.getBitmapFromAssets(url.removePrefix("asset://"))
+            } else {
+                ImageCache.getRam(cacheKey)
+            }
+        )
+    }
 
     LaunchedEffect(cacheKey) {
         if (bitmap == null) {
             val loaded = withContext(Dispatchers.IO) {
                 try {
+                    if (url.startsWith("asset://")) {
+                        return@withContext LiterateCache.getBitmapFromAssets(url.removePrefix("asset://"))
+                    }
                     // 1. Check persistent disk cache first (< 5ms, works offline!)
                     ImageCache.getDisk(cacheKey)?.let { return@withContext it }
 
