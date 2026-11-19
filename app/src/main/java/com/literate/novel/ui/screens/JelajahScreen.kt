@@ -25,6 +25,8 @@ import com.literate.novel.ui.components.LiterateIcons
 import com.literate.novel.ui.components.NetworkImage
 import com.literate.novel.ui.components.SectionHeader
 import com.literate.novel.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun JelajahScreen(
@@ -33,17 +35,47 @@ fun JelajahScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedGenre by remember { mutableStateOf("Semua") }
     var selectedStatus by remember { mutableStateOf("Semua") }
+    val scope = rememberCoroutineScope()
 
     val genresList = listOf("Semua", "Fantasy", "Mystery", "Xianxia", "Sci-Fi", "Action", "Dark", "Comedy")
     val statusList = listOf("Semua", "Tamat", "Ongoing")
 
-    val filteredNovels = NovelRepository.novels.filter { novel ->
+    // Live fetch from 5,000+ AniList catalog whenever search/genre/status changes
+    LaunchedEffect(searchQuery, selectedGenre, selectedStatus) {
+        if (searchQuery.isNotBlank()) delay(350)
+        NovelRepository.loadRemoteNovels(
+            search = searchQuery,
+            genre = selectedGenre,
+            status = selectedStatus,
+            reset = true
+        )
+    }
+
+    val filteredLocal = NovelRepository.novels.filter { novel ->
         val matchesQuery = searchQuery.isBlank() ||
                 novel.title.contains(searchQuery, ignoreCase = true) ||
                 novel.author.contains(searchQuery, ignoreCase = true)
         val matchesGenre = selectedGenre == "Semua" || novel.genres.any { it.equals(selectedGenre, ignoreCase = true) }
         val matchesStatus = selectedStatus == "Semua" || novel.status.equals(selectedStatus, ignoreCase = true)
         matchesQuery && matchesGenre && matchesStatus
+    }
+
+    val combinedNovels = remember(filteredLocal, NovelRepository.remoteNovels) {
+        val seen = HashSet<String>()
+        buildList {
+            for (n in filteredLocal) {
+                if (seen.add(n.title.lowercase())) add(n)
+            }
+            for (n in NovelRepository.remoteNovels) {
+                if (seen.add(n.title.lowercase())) add(n)
+            }
+        }
+    }
+
+    val displayCountText = remember(combinedNovels.size, NovelRepository.remoteTotalCount, NovelRepository.hasMoreRemote) {
+        val total = maxOf(combinedNovels.size, NovelRepository.remoteTotalCount)
+        if (NovelRepository.hasMoreRemote && total >= 5000) "5.000+ novel ditemukan"
+        else "$total novel ditemukan"
     }
 
     LazyColumn(
@@ -254,7 +286,7 @@ fun JelajahScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${filteredNovels.size} novel ditemukan",
+                    text = displayCountText,
                     color = TextSecondary,
                     fontSize = 12.sp
                 )
@@ -268,8 +300,8 @@ fun JelajahScreen(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // 6. Novel List Items
-        items(filteredNovels) { novel ->
+        // 6. Novel List Items (Local NovelUpdates + Live 5,000+ AniList Catalog)
+        items(combinedNovels, key = { it.id }) { novel ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -351,18 +383,66 @@ fun JelajahScreen(
             }
         }
 
-        // 7. Footer
+        // 7. Pagination / Footer
         item {
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = "Semua novel sudah ditampilkan.",
-                color = TextMuted,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            Spacer(modifier = Modifier.height(14.dp))
+            if (NovelRepository.isLoadingRemote) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MintPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            } else if (NovelRepository.hasMoreRemote) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clickable {
+                            scope.launch {
+                                NovelRepository.loadRemoteNovels(
+                                    search = searchQuery,
+                                    genre = selectedGenre,
+                                    status = selectedStatus,
+                                    reset = false
+                                )
+                            }
+                        },
+                    color = CardDark,
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Muat Lebih Banyak Novel",
+                            color = CyanAccent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = "Semua novel sudah ditampilkan.",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
             Spacer(modifier = Modifier.height(30.dp))
         }
     }

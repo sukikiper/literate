@@ -461,6 +461,58 @@ object NovelRepository {
     var novels by mutableStateOf(initialNovels)
         private set
 
+    // Live-fetched novels from AniList Public API (5,000+ catalog)
+    var remoteNovels by mutableStateOf<List<Novel>>(emptyList())
+        private set
+    var remoteTotalCount by mutableStateOf(5000)
+        private set
+    var hasMoreRemote by mutableStateOf(true)
+        private set
+    var isLoadingRemote by mutableStateOf(false)
+        private set
+    private var currentRemotePage = 0
+    private var lastQueryKey = ""
+
+    suspend fun loadRemoteNovels(
+        search: String,
+        genre: String,
+        status: String,
+        reset: Boolean = false
+    ) {
+        val key = "$search|$genre|$status"
+        if (reset || key != lastQueryKey) {
+            lastQueryKey = key
+            currentRemotePage = 0
+            remoteNovels = emptyList()
+            hasMoreRemote = true
+        }
+        if (isLoadingRemote || !hasMoreRemote) return
+
+        isLoadingRemote = true
+        val nextPage = currentRemotePage + 1
+        val result = AniListApi.fetchNovels(
+            page = nextPage,
+            perPage = 20,
+            search = search.ifBlank { null },
+            genre = genre,
+            status = status
+        )
+        if (result.novels.isNotEmpty()) {
+            val existingTitles = (novels + remoteNovels).map { it.title.lowercase() }.toSet()
+            val deduped = result.novels.filter { it.title.lowercase() !in existingTitles }
+            remoteNovels = remoteNovels + deduped
+            currentRemotePage = nextPage
+            hasMoreRemote = result.hasNextPage
+            if (result.totalCount > 0) {
+                remoteTotalCount = result.totalCount
+            }
+        } else {
+            hasMoreRemote = false
+            if (reset) remoteTotalCount = 0
+        }
+        isLoadingRemote = false
+    }
+
     var userProfile by mutableStateOf(
         UserProfile(
             name = "Pembaca Novel",
@@ -486,11 +538,22 @@ object NovelRepository {
         )
     )
 
-    fun getNovelById(id: String): Novel? = novels.find { it.id == id }
+    fun getNovelById(id: String): Novel? =
+        novels.find { it.id == id } ?: remoteNovels.find { it.id == id }
 
     fun updateBookshelf(novelId: String, shelf: BookshelfType?) {
-        novels = novels.map {
-            if (it.id == novelId) it.copy(bookshelf = shelf) else it
+        val inLocal = novels.any { it.id == novelId }
+        if (inLocal) {
+            novels = novels.map {
+                if (it.id == novelId) it.copy(bookshelf = shelf) else it
+            }
+        } else {
+            val remote = remoteNovels.find { it.id == novelId }
+            if (remote != null) {
+                val updated = remote.copy(bookshelf = shelf)
+                novels = novels + updated
+                remoteNovels = remoteNovels.map { if (it.id == novelId) updated else it }
+            }
         }
     }
 
@@ -503,7 +566,7 @@ object NovelRepository {
             isSpoiler = isSpoiler,
             progressTag = progressTag
         )
-        novels = novels.map {
+        val updater: (Novel) -> Novel = {
             if (it.id == novelId) {
                 val updatedReviews = listOf(newRev) + it.reviews
                 val newVotes = it.totalVotes + 1
@@ -515,6 +578,8 @@ object NovelRepository {
                 )
             } else it
         }
+        novels = novels.map(updater)
+        remoteNovels = remoteNovels.map(updater)
         if (novelId == "lotm") {
             myReview = newRev
         }
