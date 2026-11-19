@@ -37,6 +37,10 @@ fun DetailNovelScreen(
     val novel = NovelRepository.getNovelById(novelId) ?: NovelRepository.novels.first()
     var isSynopsisExpanded by remember { mutableStateOf(false) }
 
+    LaunchedEffect(novelId) {
+        NovelRepository.loadSakuraChaptersIfNeeded(novelId)
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()

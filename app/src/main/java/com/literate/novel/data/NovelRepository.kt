@@ -3,6 +3,7 @@ package com.literate.novel.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.withTimeoutOrNull
 
 object NovelRepository {
 
@@ -461,10 +462,10 @@ object NovelRepository {
     var novels by mutableStateOf(initialNovels)
         private set
 
-    // Live-fetched novels from AniList Public API (5,000+ catalog)
+    // Live-fetched novels from SakuraNovel WordPress REST API (478+ Bahasa Indonesia novels)
     var remoteNovels by mutableStateOf<List<Novel>>(emptyList())
         private set
-    var remoteTotalCount by mutableStateOf(5000)
+    var remoteTotalCount by mutableStateOf(478)
         private set
     var hasMoreRemote by mutableStateOf(true)
         private set
@@ -503,19 +504,30 @@ object NovelRepository {
         remoteError = false
         try {
             val nextPage = currentRemotePage + 1
-            val result = AniListApi.fetchNovels(
-                page = nextPage,
-                perPage = 20,
-                search = search.ifBlank { null },
-                genre = genre,
-                status = status
-            )
+            val result = withTimeoutOrNull(6500L) {
+                SakuraNovelApi.fetchNovels(
+                    page = nextPage,
+                    perPage = 20,
+                    search = search.ifBlank { null }
+                )
+            }
             // Ignore stale response if a newer search/filter started
             if (myRequestId != activeRequestId) return
 
+            if (result == null) {
+                hasMoreRemote = false
+                remoteError = true
+                return
+            }
+
             if (result.novels.isNotEmpty()) {
                 val existingTitles = (novels + remoteNovels).map { it.title.lowercase() }.toSet()
-                val deduped = result.novels.filter { it.title.lowercase() !in existingTitles }
+                val deduped = result.novels.filter { n ->
+                    val notDup = n.title.lowercase() !in existingTitles
+                    val matchGenre = genre == "Semua" || n.genres.any { it.equals(genre, ignoreCase = true) }
+                    val matchStatus = status == "Semua" || n.status.equals(status, ignoreCase = true)
+                    notDup && matchGenre && matchStatus
+                }
                 remoteNovels = remoteNovels + deduped
                 currentRemotePage = nextPage
                 hasMoreRemote = result.hasNextPage
@@ -524,15 +536,30 @@ object NovelRepository {
                 }
             } else {
                 hasMoreRemote = false
-                if (reset && result.totalCount == 0) {
+                if (reset && search.isBlank()) {
                     remoteError = true
                 }
             }
         } finally {
-            // ALWAYS clear loading state even on coroutine cancellation!
+            // ALWAYS clear loading state even on coroutine cancellation or timeout!
             if (myRequestId == activeRequestId) {
                 isLoadingRemote = false
             }
+        }
+    }
+
+    suspend fun loadSakuraChaptersIfNeeded(novelId: String) {
+        if (!novelId.startsWith("sn_")) return
+        val wpId = novelId.removePrefix("sn_").toIntOrNull() ?: return
+        val chapters = withTimeoutOrNull(5500L) {
+            SakuraNovelApi.fetchChaptersForSeri(wpId)
+        }
+        if (!chapters.isNullOrEmpty()) {
+            val updater: (Novel) -> Novel = { n ->
+                if (n.id == novelId) n.copy(chaptersList = chapters) else n
+            }
+            novels = novels.map(updater)
+            remoteNovels = remoteNovels.map(updater)
         }
     }
 

@@ -72,10 +72,13 @@ fun JelajahScreen(
         }
     }
 
-    val displayCountText = remember(combinedNovels.size, NovelRepository.remoteTotalCount, NovelRepository.hasMoreRemote) {
-        val total = maxOf(combinedNovels.size, NovelRepository.remoteTotalCount)
-        if (NovelRepository.hasMoreRemote && total >= 5000) "5.000+ novel ditemukan"
-        else "$total novel ditemukan"
+    val displayCountText = remember(combinedNovels.size, NovelRepository.remoteTotalCount, searchQuery, selectedGenre, selectedStatus) {
+        if (searchQuery.isBlank() && selectedGenre == "Semua" && selectedStatus == "Semua") {
+            val total = maxOf(combinedNovels.size, NovelRepository.remoteTotalCount + NovelRepository.novels.size)
+            "$total novel ditemukan"
+        } else {
+            "${combinedNovels.size} novel ditemukan"
+        }
     }
 
     LazyColumn(
