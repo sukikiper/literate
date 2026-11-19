@@ -2,7 +2,6 @@ package com.literate.novel.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.literate.novel.data.LiterateCache
 import com.literate.novel.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
@@ -36,31 +36,24 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.ConcurrentHashMap
 
-// Lightweight bounded LRU memory cache (12 MB max) for online novel covers
+// 2-Layer RAM + Disk Image Cache & Persistent Cover URL Resolver
 object ImageCache {
-    private const val MAX_CACHE_BYTES = 12 * 1024 * 1024
-    private val lru = object : LruCache<String, Bitmap>(MAX_CACHE_BYTES) {
-        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
-    }
-    private val resolvedUrls = ConcurrentHashMap<String, String>()
     private val resolveSemaphore = Semaphore(4)
 
-    fun get(key: String): Bitmap? = lru.get(key)
-    fun put(key: String, bitmap: Bitmap) {
-        lru.put(key, bitmap)
-    }
+    fun getRam(key: String): Bitmap? = LiterateCache.getBitmapFromRam(key)
+    fun getDisk(key: String): Bitmap? = LiterateCache.getBitmapFromDisk(key)
+    fun put(key: String, bitmap: Bitmap) = LiterateCache.putBitmap(key, bitmap)
 
     suspend fun resolveCoverUrl(title: String): String {
         val cleanKey = title.trim().lowercase()
         if (cleanKey.isBlank()) return ""
-        resolvedUrls[cleanKey]?.let { return it }
+        LiterateCache.getCachedCoverUrl(cleanKey)?.let { return it }
 
         return resolveSemaphore.withPermit {
-            resolvedUrls[cleanKey]?.let { return@withPermit it }
+            LiterateCache.getCachedCoverUrl(cleanKey)?.let { return@withPermit it }
             val found = fetchAniListCover(title)
-            resolvedUrls[cleanKey] = found
+            LiterateCache.putCachedCoverUrl(cleanKey, found)
             found
         }
     }
@@ -125,12 +118,15 @@ fun NetworkImage(
     val cacheKey = remember(url, fallbackTitle) {
         if (url.isNotBlank()) url else "title:${fallbackTitle?.trim()?.lowercase().orEmpty()}"
     }
-    var bitmap by remember(cacheKey) { mutableStateOf(ImageCache.get(cacheKey)) }
+    var bitmap by remember(cacheKey) { mutableStateOf(ImageCache.getRam(cacheKey)) }
 
     LaunchedEffect(cacheKey) {
         if (bitmap == null) {
             val loaded = withContext(Dispatchers.IO) {
                 try {
+                    // 1. Check persistent disk cache first (< 5ms, works offline!)
+                    ImageCache.getDisk(cacheKey)?.let { return@withContext it }
+
                     val targetUrl = if (url.isNotBlank()) {
                         url
                     } else if (!fallbackTitle.isNullOrBlank()) {
@@ -139,7 +135,10 @@ fun NetworkImage(
 
                     if (targetUrl.isBlank()) return@withContext null
 
-                    ImageCache.get(targetUrl)?.let { return@withContext it }
+                    ImageCache.getDisk(targetUrl)?.let {
+                        ImageCache.put(cacheKey, it)
+                        return@withContext it
+                    }
 
                     val conn = URL(targetUrl).openConnection() as HttpURLConnection
                     conn.connectTimeout = 6000
@@ -151,7 +150,7 @@ fun NetworkImage(
                     conn.disconnect()
                     decodeDownsampledBitmap(bytes)?.also {
                         ImageCache.put(cacheKey, it)
-                        ImageCache.put(targetUrl, it)
+                        if (targetUrl != cacheKey) ImageCache.put(targetUrl, it)
                     }
                 } catch (_: Exception) {
                     null
