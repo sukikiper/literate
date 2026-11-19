@@ -12,8 +12,8 @@ android {
         applicationId = "com.literate.novel"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -22,11 +22,24 @@ android {
         resourceConfigurations += listOf("en", "in")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("literate-release.jks")
+            storePassword = System.getenv("LITERATE_STORE_PASS") ?: "Literate2026!"
+            keyAlias = "literate_release"
+            keyPassword = System.getenv("LITERATE_KEY_PASS") ?: "Literate2026!"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
     buildTypes {
         release {
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
