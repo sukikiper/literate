@@ -470,47 +470,70 @@ object NovelRepository {
         private set
     var isLoadingRemote by mutableStateOf(false)
         private set
+    var remoteError by mutableStateOf(false)
+        private set
     private var currentRemotePage = 0
     private var lastQueryKey = ""
+    private var activeRequestId = 0
 
     suspend fun loadRemoteNovels(
         search: String,
         genre: String,
         status: String,
-        reset: Boolean = false
+        reset: Boolean = false,
+        forceReload: Boolean = false
     ) {
         val key = "$search|$genre|$status"
-        if (reset || key != lastQueryKey) {
+        if (reset) {
+            if (!forceReload && key == lastQueryKey && remoteNovels.isNotEmpty()) {
+                isLoadingRemote = false
+                return
+            }
             lastQueryKey = key
             currentRemotePage = 0
             remoteNovels = emptyList()
             hasMoreRemote = true
-        }
-        if (isLoadingRemote || !hasMoreRemote) return
-
-        isLoadingRemote = true
-        val nextPage = currentRemotePage + 1
-        val result = AniListApi.fetchNovels(
-            page = nextPage,
-            perPage = 20,
-            search = search.ifBlank { null },
-            genre = genre,
-            status = status
-        )
-        if (result.novels.isNotEmpty()) {
-            val existingTitles = (novels + remoteNovels).map { it.title.lowercase() }.toSet()
-            val deduped = result.novels.filter { it.title.lowercase() !in existingTitles }
-            remoteNovels = remoteNovels + deduped
-            currentRemotePage = nextPage
-            hasMoreRemote = result.hasNextPage
-            if (result.totalCount > 0) {
-                remoteTotalCount = result.totalCount
-            }
+            remoteError = false
         } else {
-            hasMoreRemote = false
-            if (reset) remoteTotalCount = 0
+            if (isLoadingRemote || !hasMoreRemote) return
         }
-        isLoadingRemote = false
+
+        val myRequestId = ++activeRequestId
+        isLoadingRemote = true
+        remoteError = false
+        try {
+            val nextPage = currentRemotePage + 1
+            val result = AniListApi.fetchNovels(
+                page = nextPage,
+                perPage = 20,
+                search = search.ifBlank { null },
+                genre = genre,
+                status = status
+            )
+            // Ignore stale response if a newer search/filter started
+            if (myRequestId != activeRequestId) return
+
+            if (result.novels.isNotEmpty()) {
+                val existingTitles = (novels + remoteNovels).map { it.title.lowercase() }.toSet()
+                val deduped = result.novels.filter { it.title.lowercase() !in existingTitles }
+                remoteNovels = remoteNovels + deduped
+                currentRemotePage = nextPage
+                hasMoreRemote = result.hasNextPage
+                if (result.totalCount > 0) {
+                    remoteTotalCount = result.totalCount
+                }
+            } else {
+                hasMoreRemote = false
+                if (reset && result.totalCount == 0) {
+                    remoteError = true
+                }
+            }
+        } finally {
+            // ALWAYS clear loading state even on coroutine cancellation!
+            if (myRequestId == activeRequestId) {
+                isLoadingRemote = false
+            }
+        }
     }
 
     var userProfile by mutableStateOf(

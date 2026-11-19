@@ -1,5 +1,6 @@
 package com.literate.novel.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -96,8 +97,8 @@ object AniListApi {
 
         val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
-            connectTimeout = 10000
-            readTimeout = 10000
+            connectTimeout = 7000
+            readTimeout = 7000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
@@ -214,6 +215,8 @@ object AniListApi {
             }
 
             AniListPageResult(list, hasNext, total)
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (_: Exception) {
             AniListPageResult(emptyList(), false, 0)
         } finally {

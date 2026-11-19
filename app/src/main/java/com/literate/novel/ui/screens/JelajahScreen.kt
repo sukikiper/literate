@@ -432,6 +432,40 @@ fun JelajahScreen(
                         )
                     }
                 }
+            } else if (NovelRepository.remoteError) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clickable {
+                            scope.launch {
+                                NovelRepository.loadRemoteNovels(
+                                    search = searchQuery,
+                                    genre = selectedGenre,
+                                    status = selectedStatus,
+                                    reset = true,
+                                    forceReload = true
+                                )
+                            }
+                        },
+                    color = CardDark,
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Gagal memuat katalog online · Coba Lagi",
+                            color = CyanAccent,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             } else {
                 Text(
                     text = "Semua novel sudah ditampilkan.",
